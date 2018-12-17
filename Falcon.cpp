@@ -25,7 +25,7 @@ November  2013     V2.3
 #include "Serial.h"
 #include "GPS.h"
 #include "Protocol.h"
-#include "SPI_RX.h"
+#include "CUSTOM_RX.h"
 
 #include <avr/pgmspace.h>
 
@@ -697,6 +697,9 @@ void setup() {
   #if defined(SPI_RX)
     SPI_Init();
   #endif
+  #if defined(I2C_RX)
+    I2C_RX_Init();
+  #endif
   initSensors();
   #if GPS
     GPS_set_pids();
@@ -856,6 +859,9 @@ void loop () {
   #endif 
   #if defined(SPI_RX)
 	SPI_Read_RC();
+  #endif
+  #if defined(I2C_RX)
+  I2C_RX_Read_RC();
   #endif
   
   #if defined(SERIAL_RX)

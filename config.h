@@ -161,7 +161,7 @@
       //#define MultiWii_32U4_SE_no_baro // Hextronik MultiWii_32U4_SE without the MS561101BA to free flash-memory for other functions
       //#define Flyduino9DOF       // Flyduino 9DOF IMU MPU6050+HMC5883l
       //#define Nano_Plane         // Multiwii Plane version with tail-front LSM330 sensor http://www.radiosait.ru/en/page_5324.html
-      
+      //#define Nano_9DOF_MPU9250
       #define Nano_9DOF_QMC5883
 
       
@@ -401,7 +401,7 @@ At this moment you can use this function only with WinGUI 2.3 release. MultiWiiC
       //#define SBUS     PITCH,YAW,THROTTLE,ROLL,AUX1,AUX2,AUX3,AUX4,8,9,10,11,12,13,14,15,16,17  // dsm2 orangerx
       //#define SBUS     ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4,8,9,10,11,12,13,14,15,16,17  // T14SG
       //#define RX_SERIAL_PORT 1
-      #define SBUS_MID_OFFSET 988 //SBUS Mid-Point at 1500
+      //#define SBUS_MID_OFFSET 988 //SBUS Mid-Point at 1500
 
     /******************************* HOTT RECIVER ************************************/
     /* Graupner Hott HD */
@@ -410,7 +410,14 @@ At this moment you can use this function only with WinGUI 2.3 release. MultiWiiC
 
     /******************************* SPI based Telemetry on-board ****************************************/
     //#define RPI_SPI_RX
-    #define NRF24_RX
+    //#define NRF24_RX
+
+    /******************************* I2C based Telemetry on-board ****************************************/
+    //#define RPI_I2C_RX
+
+    /******************************* MSP based Telemetry on-board ****************************************/
+    #define MSP_RX_NO_TRANSITION
+    #define MSP_RX_TRANSITION_MAX_COUNTER   5000     // Set the transition limit; count of 50 = 1s.
     
 /*************************************************************************************************/
 /*****************                                                                 ***************/
@@ -1206,4 +1213,3 @@ Also note, that maqgnetic declination changes with time, so recheck your value e
 /*************************************************************************************************/
 
 #endif /* CONFIG_H_ */
-

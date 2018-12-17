@@ -17,7 +17,7 @@ void initializeServo();
 // since we are uing the PWM generation in a direct way, the pin order is just to inizialie the right pins 
 // its not possible to change a PWM output pin just by changing the order
 #if defined(PROMINI)
-  #if defined(SPI_RX)
+  #if defined(SPI_RX) || defined(I2C_RX)
     uint8_t PWM_PIN[8] = {9,6,5,3,A2,12,10,11};   //use pin 6 and 5 instead of 10 and 11 - only valid for quad!
   #else
     uint8_t PWM_PIN[8] = {9,10,11,3,6,5,A2,12};   //for a quad+: rear,right,left,front
@@ -50,7 +50,7 @@ void initializeServo();
 /***************         Software PWM & Servo variables            ********************/
 /**************************************************************************************/
 #if defined(PROMINI) || (defined(PROMICRO) && defined(HWPWM6)) || (defined(MEGA) && defined(MEGA_HW_PWM_SERVOS))
-  #if defined(SPI_RX)
+  #if defined(SPI_RX) || defined(I2C_RX)
     volatile uint8_t atomicPWM_PIN5_lowState;
     volatile uint8_t atomicPWM_PIN5_highState;
     volatile uint8_t atomicPWM_PIN6_lowState;
@@ -428,7 +428,7 @@ void writeMotors() { // [1000;2000] => [125;250]
         OCR1A = motor[0]>>3; //  pin 9
       #endif
     #endif
-    #if defined(SPI_RX) // for SPI Raspberry Pi receiver, use pin 5 and 6 instead of 10 and 11
+    #if defined(SPI_RX) || defined(I2C_RX) // for SPI/I2C Raspberry Pi receiver, use pin 5 and 6 instead of 10 and 11
       #ifndef EXT_MOTOR_RANGE 
         atomicPWM_PIN6_highState = motor[1]>>3;
         atomicPWM_PIN5_highState = motor[2]>>3;
@@ -674,7 +674,7 @@ void initOutput() {
     #if (NUMBER_MOTOR > 0)
       TCCR1A |= _BV(COM1A1); // connect pin 9 to timer 1 channel A
     #endif
-    #if defined(SPI_RX)
+    #if defined(SPI_RX) || defined(I2C_RX)
       initializeSoftPWM(); // use pin 6,5 instead of 10,11 for SPI based receiver
     #else
       #if (NUMBER_MOTOR > 1)
@@ -1005,7 +1005,7 @@ void initializeServo() {
 // SW PWM is only used if there are not enough HW PWM pins (for exampe hexa on a promini)
 // It will also be used for SPI based receiver (pin 11 is used for SPI so using 6 instead).
 
-#if defined(SPI_RX) || ((NUMBER_MOTOR > 4) && (defined(PROMINI) || defined(PROMICRO)))
+#if defined(SPI_RX) || defined(I2C_RX) || ((NUMBER_MOTOR > 4) && (defined(PROMINI) || defined(PROMICRO)))
 
   /****************    Pre define the used ISR's and Timerchannels     ******************/
   #if !defined(PROMICRO)
@@ -1027,10 +1027,10 @@ void initializeServo() {
   void initializeSoftPWM(void) {
     #if !defined(PROMICRO)
       TCCR0A = 0; // normal counting mode
-      #if defined(SPI_RX) || ((NUMBER_MOTOR > 4) && !defined(HWPWM6))
+      #if defined(SPI_RX) || defined(I2C_RX) || ((NUMBER_MOTOR > 4) && !defined(HWPWM6))
         TIMSK0 |= (1<<OCIE0B); // Enable CTC interrupt  
       #endif
-      #if defined(SPI_RX) || (NUMBER_MOTOR > 6) || ((NUMBER_MOTOR == 6) && !defined(SERVO))
+      #if defined(SPI_RX) || (defined(I2C_RX) || NUMBER_MOTOR > 6) || ((NUMBER_MOTOR == 6) && !defined(SERVO))
         TIMSK0 |= (1<<OCIE0A);
       #endif
     #else
@@ -1052,7 +1052,7 @@ void initializeServo() {
   /****************               Motor SW PWM ISR's                 ******************/
   // hexa with old but sometimes better SW PWM method
   // for setups without servos
-  #if defined(SPI_RX) || ((NUMBER_MOTOR == 6) && (!defined(SERVO) && !defined(HWPWM6)))
+  #if defined(SPI_RX) || defined(I2C_RX) || ((NUMBER_MOTOR == 6) && (!defined(SERVO) && !defined(HWPWM6)))
     ISR(SOFT_PWM_ISR1) { 
       static uint8_t state = 0;
       if(state == 0){

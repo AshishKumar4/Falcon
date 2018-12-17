@@ -12,6 +12,11 @@
 #endif
 
 
+#if defined(RPI_I2C_RX)
+  #define I2C_RX
+#endif
+
+
 /**************************************************************************************/
 /***************             test configurations                   ********************/
 /**************************************************************************************/
@@ -1569,6 +1574,16 @@
   #undef INTERNAL_I2C_PULLUPS
 #endif
 
+#if defined(Nano_9DOF_MPU9250)
+  #define MPU6050
+  #define MPU9250_MAG
+  #define ACC_ORIENTATION(X, Y, Z)  {imu.accADC[ROLL]  = -X; imu.accADC[PITCH]  = -Y; imu.accADC[YAW]  =  Z;}
+  #define GYRO_ORIENTATION(X, Y, Z) {imu.gyroADC[ROLL] =  Y; imu.gyroADC[PITCH] = -X; imu.gyroADC[YAW] = -Z;}
+  #define MAG_ORIENTATION(X, Y, Z)  {imu.magADC[ROLL]  =  X; imu.magADC[PITCH]  =  Y; imu.magADC[YAW]  = -Z;}
+  //#define MPU6050_EN_I2C_BYPASS // MAG connected to the AUX I2C bus of MPU6050
+  #undef INTERNAL_I2C_PULLUPS
+#endif
+
 #if defined(Nano_Plane)
   #define LSM330
   #define ACC_ORIENTATION(X, Y, Z)  {imu.accADC[ROLL]  = -X; imu.accADC[PITCH]  = -Y; imu.accADC[YAW]  =  Z;}
@@ -1665,7 +1680,7 @@
   #define ACC 0
 #endif
 
-#if defined(HMC5883) || defined(HMC5843) || defined(AK8975) || defined(MAG3110) || defined (QMC5883)
+#if defined(HMC5883) || defined(HMC5843) || defined(AK8975) || defined(MAG3110) || defined (QMC5883) || defined (MPU9250_MAG)
   #define MAG 1
 #else
   #define MAG 0
@@ -1810,7 +1825,7 @@
 
 //all new Special RX's must be added here
 //this is to avoid confusion :)
-#if !defined(SERIAL_SUM_PPM) && !defined(SPEKTRUM) && !defined(SBUS) && !defined(SUMD) && !defined(SPI_RX)
+#if !defined(SERIAL_SUM_PPM) && !defined(SPEKTRUM) && !defined(SBUS) && !defined(SUMD) && !defined(SPI_RX) && !defined(I2C_RX)
   #define STANDARD_RX
 #endif
 

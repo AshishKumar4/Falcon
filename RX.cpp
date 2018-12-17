@@ -6,7 +6,7 @@
 #include "Protocol.h"
 #include "Falcon.h"
 #include "Alarms.h"
-#include "SPI_RX.h"
+#include "CUSTOM_RX.h"
 
 /**************************************************************************************/
 /***************             Global RX related variables           ********************/
@@ -450,6 +450,10 @@ uint16_t readRawRC(uint8_t chan) {
     if (chan < RC_CHANS) {
       data = SPI_rcData[chan];
     } else data = 1500;
+  #elif defined(I2C_RX)
+    if (chan < RC_CHANS) {
+      data = I2C_rcData[chan];
+    } else data = 1500;
   #else
     uint8_t oldSREG;
     oldSREG = SREG; cli(); // Let's disable interrupts
@@ -478,7 +482,7 @@ void computeRC() {
       #if defined(FAILSAFE)
         failsafeGoodCondition = rcDataTmp>FAILSAFE_DETECT_TRESHOLD || chan > 3 || !f.ARMED; // update controls channel only if pulse is above FAILSAFE_DETECT_TRESHOLD
       #endif                                                                                // In disarmed state allow always update for easer configuration.
-      #if defined(SPEKTRUM) || defined(SBUS) || defined(SUMD) // no averaging for Spektrum & SBUS & SUMD signal
+      #if defined(SPEKTRUM) || defined(SBUS) || defined(SUMD) || defined(SPI_RX) // no averaging for Spektrum & SBUS & SUMD signal
         if(failsafeGoodCondition)  rcData[chan] = rcDataTmp;
       #else
         if(failsafeGoodCondition) {
@@ -490,13 +494,23 @@ void computeRC() {
           rcData4Values[chan][rc4ValuesIndex] = rcDataTmp;
         }
       #endif
-      if (chan<8 && rcSerialCount > 0) { // rcData comes from MSP and overrides RX Data until rcSerialCount reaches 0
-        rcSerialCount --;
-        #if defined(FAILSAFE)
-          failsafeCnt = 0;
-        #endif
-        if (rcSerial[chan] >900) {rcData[chan] = rcSerial[chan];} // only relevant channels are overridden
-      }
+      #if defined(MSP_RX_NO_TRANSITION)
+        if(chan < 8)
+        {
+          /*#if defined(FAILSAFE)
+            failsafeCnt = 0;
+          #endif*/
+          if (rcSerial[chan] >900) {rcData[chan] = rcSerial[chan];} // only relevant channels are overridden
+        }
+      #else 
+        if (chan<8 && rcSerialCount > 0) { // rcData comes from MSP and overrides RX Data until rcSerialCount reaches 0
+          rcSerialCount --;
+          #if defined(FAILSAFE)
+            failsafeCnt = 0;
+          #endif
+          if (rcSerial[chan] >900) {rcData[chan] = rcSerial[chan];} // only relevant channels are overridden
+        }
+      #endif
     }
   #endif
 }

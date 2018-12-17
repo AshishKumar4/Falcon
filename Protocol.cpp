@@ -265,7 +265,7 @@ void evaluateCommand(uint8_t c) {
     //  break;
     case MSP_SET_RAW_RC:
       s_struct_w((uint8_t*)&rcSerial,16);
-      rcSerialCount = 50; // 1s transition 
+      rcSerialCount = MSP_RX_TRANSITION_MAX_COUNTER;//50; // 1s transition 
       break;
     case MSP_SET_PID:
       mspAck();

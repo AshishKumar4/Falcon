@@ -3,7 +3,7 @@
 #include "def.h"
 #include "types.h"
 #include "Falcon.h"
-#include "SPI_RX.h"
+#include "CUSTOM_RX.h"
 #include "Serial.h"
 
 #include <SPI.h>
@@ -14,7 +14,9 @@
 
 #define CPACKET_MAGIC 110
 #define REQ_SIGNAL 251
+#define REQ2_SIGNAL 101
 #define ACCEPT_SIGNAL 252
+#define ACK_GOT_PACKET 250
 #define RPACKET_MAGIC 120
 #define FALSE_PACKET 145
 
@@ -30,7 +32,7 @@ struct ControlPackets
   unsigned char aux1;
   unsigned char aux2;
   unsigned char switches;
-  unsigned char random[9];
+  //unsigned char random[9];
   unsigned char checksum;
 };
 
@@ -44,13 +46,13 @@ struct ResponsePackets
   unsigned char lat;
   unsigned char lon;
   unsigned char heading;
-  unsigned char random[8];
-  unsigned char flags;
+  //unsigned char random[8];
+  //unsigned char flags;
   unsigned char checksum;
 };
 
 ControlPackets rfCusData;
-ResponsePackets rfResData;
+//ResponsePackets rfResData;
 
 void SPI_Init()
 {
@@ -69,10 +71,6 @@ void SPI_Read_RC()
   RPI_SPI_Read_RC();
 #endif
 }
-
-/*****************************************************************************************/
-#endif
-/*****************************************************************************************/
 
 /*****************************************************************************************/
 /*****************************************************************************************/
@@ -177,9 +175,9 @@ void NRF24_Read_RC()
 
 int rcPins[] = {A2, 12, 10, 11, A1, A3}; //{A0, A1, A3, A6, A7, A2};
 
-int checksum(char *buf, int len)
+unsigned char checksum(unsigned char *buf, int len)
 {
-  char tt = 0;
+  unsigned char tt = 0;
   for (int i = 0; i < len - 1; i++)
   {
     tt ^= buf[i];
@@ -187,8 +185,8 @@ int checksum(char *buf, int len)
   return tt;
 }
 
-unsigned char *buff = (unsigned char *)&rfCusData;
-unsigned char *rbuff = (unsigned char *)&rfResData;
+unsigned char buff[256]; //(unsigned char *)&rfCusData;
+//unsigned char *rbuff = (unsigned char *)&rfResData;
 
 volatile int index = 0;
 volatile boolean process = true;
@@ -196,7 +194,11 @@ volatile boolean process = true;
 void RPI_SPI_Init()
 {
   pinMode(MISO, OUTPUT);
+  pinMode(MOSI, INPUT);
+  pinMode(MISO, OUTPUT);
+  // turn on SPI in slave mode
   SPCR |= _BV(SPE);
+
   // SPI.begin();
   index = 0;
   process = true;
@@ -205,73 +207,152 @@ void RPI_SPI_Init()
   {
     SPDR = rbuff[i];
   }*/
-  SPDR = ACCEPT_SIGNAL; // Recieved Signal
+  //SPDR = ACCEPT_SIGNAL; // Recieved Signal
   //Serial.begin(115200);
+
+  SPI_rcData[THROTTLE] = map(rfCusData.throttle, 0, 255, 1000, 2000);
+  SPI_rcData[YAW] = map(rfCusData.yaw, 0, 255, 1000, 2000);
+  SPI_rcData[PITCH] = map(rfCusData.pitch, 0, 255, 1000, 2000);
+  SPI_rcData[ROLL] = map(rfCusData.roll, 0, 255, 1000, 2000);
+  SPI_rcData[AUX1] = map(rfCusData.aux1, 0, 255, 1000, 2000);
+  SPI_rcData[AUX2] = map(rfCusData.aux2, 0, 255, 1000, 2000);
 }
+
+volatile static uint8_t tval = 0, chnl = 0, csum = 0, tbf = 0;
+volatile static uint8_t tmpVal = 0, tmpChnl = 0;
+volatile static uint8_t flg1 = 0, flg2 = 0;
+volatile static uint8_t g;
+
+int chnl_tbl[] = {THROTTLE, PITCH, ROLL, YAW};
 
 ISR(SPI_STC_vect)
 {
-  unsigned char g = SPDR;
-  if (!process) // && (SPSR & (1<<SPIF)) != 0)
+  g = SPDR;
+  buff[0] += g;
+  SPDR = g;
+}
+
+void tes()
+{
+  if (index == 0) // Value
   {
-    if (index < sizeof(ControlPackets) - 1)
+    SPDR = (g ^ 0xff);
+    if (flg1 == 0)
     {
-      SPDR = index + 1;
-      buff[index++] = g;
+      tmpVal = g;
+    }
+    ++index;
+  }
+  else if (index == 1) // Channel
+  {
+    SPDR = (g ^ 0xff);
+    if (flg2 == 0)
+    {
+      tmpChnl = g;
+    }
+    ++index;
+  }
+  else if (index == 2)
+  {
+    SPDR = 0x25;
+    /*tbf = ((g&0xf0) >> 4)&0x0f;
+    g = g & 0x0f;
+    if(tbf > g && !flg1)   // correct value recieved*/
+    if (g == tmpVal || flg1 == 1)
+    {
+      flg1 = 1;
     }
     else
     {
-      buff[sizeof(ControlPackets) - 1] = SPDR;
-      //if(buff[0] == 110)
-      process = true;
-
-      if (rfCusData.magic == CPACKET_MAGIC)
-      {
-        rfResData.magic = RPACKET_MAGIC;
-        rfResData.lat = 35.62;
-        rfResData.lon = 139.68;
-        rfResData.heading = att.heading;
-        rfResData.pitch = att.angle[PITCH];
-        rfResData.roll = att.angle[ROLL];
-        rfResData.alt = alt.EstAlt;
-
-        /*for (int i = 0; i < sizeof(ControlPackets); i++)
-        {
-          SPDR = rbuff[i];
-        }*/
-
-        SPI_rcData[THROTTLE] = map(rfCusData.throttle, 0, 255, 1000, 2000);
-        SPI_rcData[YAW] = map(rfCusData.yaw, 0, 255, 1000, 2000);
-        SPI_rcData[PITCH] = map(rfCusData.pitch, 0, 255, 1000, 2000);
-        SPI_rcData[ROLL] = map(rfCusData.roll, 0, 255, 1000, 2000);
-        SPI_rcData[AUX1] = map(rfCusData.aux1, 0, 255, 1000, 2000);
-        SPI_rcData[AUX2] = map(rfCusData.aux2, 0, 255, 1000, 2000);
-        SPDR = ACCEPT_SIGNAL; // Recieved Signal
-      }
-      else
-      {
-        /*for (int i = 0; i < sizeof(ControlPackets); i++)
-        {
-          SPDR = FALSE_PACKET;
-        }*/
-        SPDR = FALSE_PACKET; // Recieved Signal
-      }
+      flg1 = 0; // We got a incorrect value
     }
+    ++index;
   }
-  else if (g == REQ_SIGNAL) // Handshake
+  else if (index == 3)
   {
-    //buff[0] = g;
-    //SPDR = ACCEPT_SIGNAL;  // Recieved Signal
-
+    SPDR = 0x23;
+    /*tbf = ((g&0xf0) >> 4)&0x0f;
+    g = g & 0x0f;*/
+    if (g == tmpChnl || flg2 == 1) //if(tbf > g && !flg2)   // correct channel recieved
+    {
+      flg2 = 1;
+    }
+    else
+    {
+      flg2 = 0; // We got a incorrect channel
+    }
+    if (flg1 == 1 && flg2 == 1) // We have recieved the right channel and value
+    {
+      flg1 = 0;
+      flg2 = 0;
+      buff[tmpChnl] = tmpVal;
+      //SPI_rcData[chnl_tbl[tmpChnl%4]] = map(tmpVal, 0, 255, 1000, 2000);
+      //SPI_rcData[0] = map(43, 0, 255, 1000, 2000);
+    }
     index = 0;
-    process = false;
   }
 }
 
 void RPI_SPI_Read_RC()
 {
+  uint8_t oldSREG;
+  oldSREG = SREG;
+  cli(); // Let's disable interrupts
+  SPI_rcData[THROTTLE] = buff[10] + 1000;//map(buff[0], 0, 255, 1000, 2000);
+  SPI_rcData[YAW] = map(buff[1], 0, 255, 1000, 2000);
+  SPI_rcData[PITCH] = map(buff[2], 0, 255, 1000, 2000);
+  SPI_rcData[ROLL] = map(buff[3], 0, 255, 1000, 2000);
+  SPI_rcData[AUX1] = map(buff[4], 0, 255, 1000, 2000);
+  SPI_rcData[AUX2] = map(buff[5], 0, 255, 1000, 2000);
+  SREG = oldSREG; // Let's restore interrupt state
+  /*while((SPSR & (1<<SPIF)) != 0)
+  {
+    unsigned char g = SPDR;
+    SPDR = g + 10;
+  }*/
+}
+
+#endif      // End of RPI_SPI Definitions
+/*****************************************************************************************/
+#endif      //  End of SPI Definitions
+/*****************************************************************************************/
+
+
+/*****************************************************************************************/
+#if defined(I2C_RX)     // I2C Definitions
+/*****************************************************************************************/
+
+#define CPACKET_MAGIC 110
+#define REQ_SIGNAL 251
+#define REQ2_SIGNAL 101
+#define ACCEPT_SIGNAL 252
+#define ACK_GOT_PACKET 250
+#define RPACKET_MAGIC 120
+#define FALSE_PACKET 145
+
+int16_t I2C_rcData[RC_CHANS];
+uint8_t buff[8];
+
+void I2C_RX_Init()
+{
+  buff[0] = 127;
+} 
+
+void I2C_RX_Read_RC()
+{
+  uint8_t oldSREG;
+  oldSREG = SREG;
+  cli(); // Let's disable interrupts
+  I2C_rcData[THROTTLE] = map(buff[0], 0, 255, 1000, 2000);
+  I2C_rcData[YAW] = map(buff[1], 0, 255, 1000, 2000);
+  I2C_rcData[PITCH] = map(buff[2], 0, 255, 1000, 2000);
+  I2C_rcData[ROLL] = map(buff[3], 0, 255, 1000, 2000);
+  I2C_rcData[AUX1] = map(buff[4], 0, 255, 1000, 2000);
+  I2C_rcData[AUX2] = map(buff[5], 0, 255, 1000, 2000);
+  SREG = oldSREG; // Let's restore interrupt state*/
 }
 
 /*****************************************************************************************/
 #endif
 /*****************************************************************************************/
+
